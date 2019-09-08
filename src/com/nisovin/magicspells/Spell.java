@@ -1319,8 +1319,8 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	
 	// TODO can this safely be made varargs?
 	public void sendMessages(Player player, String[] args) {
-		sendMessage(formatMessage(this.strCastSelf, "%a", player.getDisplayName()), player, args);
-		sendMessageNear(player, formatMessage(this.strCastOthers, "%a", player.getDisplayName()));
+		sendMessage(formatMessage(strCastSelf, "%a", player.getName()), player, args);
+		sendMessageNear(player, formatMessage(strCastOthers, "%a", player.getName()));
 	}
 	
 	// TODO can this safely be made varargs?

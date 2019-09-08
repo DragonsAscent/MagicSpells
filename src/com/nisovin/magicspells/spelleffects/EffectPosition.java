@@ -135,8 +135,17 @@ public enum EffectPosition {
 	 *     - PulserSpell
 	 *     - EntombSpell
 	 */
-	BLOCK_DESTRUCTION(12, "blockdestroy", "blockdestruction");
+	BLOCK_DESTRUCTION(12, "blockdestroy", "blockdestruction"),
 	//TODO add this effect position to the WallSpell
+
+	/**
+	 * May be referenced in cleansable spells as: clear or cleansed
+	 * Spells supports in:
+	 *  - LevitateSpell
+	 *  - DotSpell
+	 *  - StunSpell
+	 */
+	CLEANSED(13, "clear", "cleansed");
 	
 	private int id;
 	private String[] names;
