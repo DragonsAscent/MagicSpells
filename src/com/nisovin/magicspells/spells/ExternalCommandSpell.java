@@ -1,6 +1,7 @@
 package com.nisovin.magicspells.spells;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.BlockCommandSender;
@@ -10,6 +11,7 @@ import org.bukkit.conversations.ConversationContext;
 import org.bukkit.conversations.ConversationFactory;
 import org.bukkit.conversations.Prompt;
 import org.bukkit.conversations.StringPrompt;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -35,6 +37,7 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 	List<String> temporaryPermissions;
 	boolean temporaryOp;
 	private boolean requirePlayerTarget;
+	private boolean requireEntityTarget;
 	boolean blockChatOutput;
 	boolean executeAsTargetInstead;
 	boolean executeOnConsoleInstead;
@@ -59,6 +62,7 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 		this.temporaryPermissions = getConfigStringList("temporary-permissions", null);
 		this.temporaryOp = getConfigBoolean("temporary-op", false);
 		this.requirePlayerTarget = getConfigBoolean("require-player-target", false);
+		this.requirePlayerTarget = getConfigBoolean("require-entity-target", false);
 		this.blockChatOutput = getConfigBoolean("block-chat-output", false);
 		this.executeAsTargetInstead = getConfigBoolean("execute-as-target-instead", false);
 		this.executeOnConsoleInstead = getConfigBoolean("execute-on-console-instead", false);
@@ -67,8 +71,9 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 		this.strBlockedOutput = getConfigString("str-blocked-output", "");
 		this.doVariableReplacement = getConfigBoolean("do-variable-replacement", false);
 		this.useTargetVariablesInstead = getConfigBoolean("use-target-variables-instead", false);
-		
+
 		if (this.requirePlayerTarget) this.validTargetList = new ValidTargetList(true, false);
+		if (this.requireEntityTarget) this.validTargetList = new ValidTargetList(true, true);
 		
 		if (this.blockChatOutput) {
 			if (Bukkit.getPluginManager().isPluginEnabled("ProtocolLib")) {
@@ -99,7 +104,8 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 	public PostCastAction castSpell(Player player, SpellCastState state, float power, String[] args) {
 		if (state == SpellCastState.NORMAL) {
 			// Get target if necessary
-			Player target = null;
+			Player caster = player;
+			Entity target = null;
 			if (this.requirePlayerTarget) {
 				TargetInfo<Player> targetInfo = getTargetedPlayer(player, power);
 				if (targetInfo == null) {
@@ -108,12 +114,20 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 				}
 				target = targetInfo.getTarget();
 			}
-			process(player, target, args);
+			if (this.requireEntityTarget) {
+				TargetInfo<LivingEntity> targetEntityInfo = getTargetedEntity(player, power);
+				if (targetEntityInfo == null || targetEntityInfo.getTarget() == null) {
+					sendMessage(this.strNoTarget, player, args);
+					return PostCastAction.ALREADY_HANDLED;
+				}
+				target = targetEntityInfo.getTarget();
+			}
+			process(player, caster, target, args);
 		}
 		return PostCastAction.HANDLE_NORMALLY;
 	}
-	
-	private void process(CommandSender sender, Player target, String[] args) {
+
+	private void process(CommandSender sender, Player caster, Entity target, String[] args) {
 		// Get actual sender
 		CommandSender actualSender;
 		if (this.executeAsTargetInstead) {
@@ -159,7 +173,7 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 				if (!this.useTargetVariablesInstead) {
 					varOwner = sender instanceof Player ? (Player)sender : null;
 				} else{
-					varOwner = target;
+					varOwner = (Player)target;
 				}
 				for (String comm : this.commandToExecute) {
 					if (comm != null && !comm.isEmpty()) {
@@ -171,8 +185,25 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 								comm = comm.replace("%" + (i + 1), args[i]);
 							}
 						}
-						if (sender != null) comm = comm.replace("%a", sender.getName());
-						if (target != null) comm = comm.replace("%t", target.getName());
+						// ---- >> Caster Variables
+						// TODO move to "CasterReplacementManager"
+						if (sender != null) {
+							if (caster != null) comm = comm.replace("%a_uuid", caster.getUniqueId().toString());
+							if (caster != null) comm = comm.replace("%a_x", caster.getLocation().getBlockX() + "");
+							if (caster != null) comm = comm.replace("%a_y", caster.getLocation().getBlockY() + "");
+							if (caster != null) comm = comm.replace("%a_z", caster.getLocation().getBlockZ() + "");
+							comm = comm.replace("%a", sender.getName());
+						}
+						// ---- >> Target Variables
+						// TODO move to "TargetReplacementManager"
+						if (target != null) {
+							comm = comm.replace("%t_uuid", target.getUniqueId().toString());
+							comm = comm.replace("%t_x", target.getLocation().getBlockX() + "");
+							comm = comm.replace("%t_y", target.getLocation().getBlockY() + "");
+							comm = comm.replace("%t_z", target.getLocation().getBlockZ() + "");
+							comm = comm.replace("%t", target.getName());
+						}
+						// We might not do two managers, who knows.
 						if (comm.startsWith("DELAY ")) {
 							String[] split = comm.split(" ");
 							delay += Integer.parseInt(split[1]);
@@ -218,7 +249,10 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 	@Override
 	public boolean castAtEntity(Player caster, LivingEntity target, float power) {
 		if (this.requirePlayerTarget && target instanceof Player) {
-			process(caster, (Player)target, MagicSpells.NULL_ARGS);
+			process(caster, caster,(Player)target, MagicSpells.NULL_ARGS);
+			return true;
+		} else if (this.requireEntityTarget) {
+			process(null, (Player) target, target, MagicSpells.NULL_ARGS);
 			return true;
 		}
 		return false;
@@ -227,7 +261,10 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 	@Override
 	public boolean castAtEntity(LivingEntity target, float power) {
 		if (this.requirePlayerTarget && target instanceof Player) {
-			process(null, (Player)target, MagicSpells.NULL_ARGS);
+			process(null, (Player)target, (Player)target, MagicSpells.NULL_ARGS);
+			return true;
+		} else if (this.requireEntityTarget) {
+			process(null, (Player)target, target, MagicSpells.NULL_ARGS);
 			return true;
 		}
 		return false;
@@ -236,7 +273,7 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 	@Override
 	public boolean castFromConsole(CommandSender sender, String[] args) {
 		if (!this.requirePlayerTarget) {
-			process(sender, null, args);
+			process(sender, null,null, args);
 			return true;
 		}
 		return false;
@@ -264,6 +301,10 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 		return this.requirePlayerTarget;
 	}
 
+	public boolean requiresEntityTarget() {
+		return this.requireEntityTarget;
+	}
+
 	@Override
 	public boolean canCastByCommand() {
 		return this.castByCommand;
@@ -284,9 +325,9 @@ public class ExternalCommandSpell extends TargetedSpell implements TargetedEntit
 	private class DelayedCommand implements Runnable {
 
 		private CommandSender sender;
-		private Player target;
+		private Entity target;
 		
-		public DelayedCommand(CommandSender sender, Player target) {
+		public DelayedCommand(CommandSender sender, Entity target) {
 			this.sender = sender;
 			this.target = target;
 		}

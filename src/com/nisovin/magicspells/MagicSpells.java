@@ -631,7 +631,7 @@ public class MagicSpells extends JavaPlugin {
 		log("MagicSpells loading complete!");
 	}
 	
-	private static final int LONG_LOAD_THRESHOLD = 50;
+	private static final int LONG_LOAD_THRESHOLD = 75; // Less console spam for 3.6-Final
 	// DEBUG INFO: level 2, loaded spell spellname
 	private void loadSpells(MagicConfig config, PluginManager pm, HashMap<String, Boolean> permGrantChildren, HashMap<String, Boolean> permLearnChildren, HashMap<String, Boolean> permCastChildren, HashMap<String, Boolean> permTeachChildren) {
 		// Load spells from plugin folder

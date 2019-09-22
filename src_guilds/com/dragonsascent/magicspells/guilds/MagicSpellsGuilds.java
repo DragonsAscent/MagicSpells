@@ -1,4 +1,4 @@
-package com.nisovin.magicspells.teams;
+package com.dragonsascent.magicspells.guilds;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -16,6 +16,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -23,21 +24,30 @@ import com.nisovin.magicspells.MagicSpells;
 import com.nisovin.magicspells.events.MagicSpellsLoadedEvent;
 import com.nisovin.magicspells.events.SpellTargetEvent;
 
-public class MagicSpellsTeams extends JavaPlugin implements Listener {
+import com.dragonsascent.magicspells.guilds.types.Guild;
+import com.dragonsascent.magicspells.guilds.types.Party;
+import com.dragonsascent.magicspells.guilds.command.MagicSpellsGuildsCommand;
+
+public class MagicSpellsGuilds extends JavaPlugin implements Listener {
 
 	private boolean useCache;
 	private boolean clearCacheOnDeath;
-	
-	private List<Team> teams;
-	private Map<String, Team> teamNames;
-	private Map<String, Team> playerTeams;
-	
-	@Override
+
+	private List<Party> parties;
+	private List<Party> partyOwners;
+
+	private List<Guild> guilds;
+	private Map<String, Guild> guildNames;
+	private Map<String, Guild> playerGuilds;
+
+    @Override
 	public void onEnable() {
 		// Setup containers
-		this.teams = new ArrayList<>();
-		this.teamNames = new HashMap<>();
-		this.playerTeams = new HashMap<>();
+		this.partyOwners = new ArrayList<>();
+		this.parties = new ArrayList<>();
+		this.guilds = new ArrayList<>();
+		this.guildNames = new HashMap<>();
+		this.playerGuilds = new HashMap<>();
 		
 		// Get config
 		File file = new File(getDataFolder(), "config.yml");
@@ -49,19 +59,19 @@ public class MagicSpellsTeams extends JavaPlugin implements Listener {
 		this.useCache = config.getBoolean("use-cache", true);
 		this.clearCacheOnDeath = config.getBoolean("clear-cache-on-death", false);
 		
-		// Setup teams
-		MagicSpells.debug(1, "Loading teams...");
-		Set<String> teamKeys = config.getConfigurationSection("teams").getKeys(false);
-		for (String name : teamKeys) {
-			Team team = new Team(config.getConfigurationSection("teams." + name), name);
-			this.teams.add(team);
-			this.teamNames.put(name, team);
-			MagicSpells.debug(2, "    Team " + name + " loaded");
+		// Setup guilds
+		MagicSpells.debug(1, "Loading guilds...");
+		Set<String> guildKeys = config.getConfigurationSection("guilds").getKeys(false);
+		for (String name : guildKeys) {
+			Guild guild = new Guild(config.getConfigurationSection("guilds." + name), name);
+			this.guilds.add(guild);
+			this.guildNames.put(name, guild);
+			MagicSpells.debug(2, "    Guild " + name + " loaded");
 		}
-		for (Team team : this.teams) {
-			team.initialize(this);
+		for (Guild guild : this.guilds) {
+			guild.initialize(this);
 		}
-		getCommand("magicspellsteams").setExecutor(new MagicSpellsTeamsCommand(this));
+		getCommand("magicspellsguilds").setExecutor(new MagicSpellsGuildsCommand(this));
 		
 		// Register events
 		EventUtil.register(this, this);
@@ -69,10 +79,12 @@ public class MagicSpellsTeams extends JavaPlugin implements Listener {
 	
 	@Override
 	public void onDisable() {
-		this.teams = null;
-		this.teamNames = null;
-		this.playerTeams = null;
-		getCommand("magicspellsteams").setExecutor(null);
+		this.partyOwners = null;
+		this.parties = null;
+		this.guilds = null;
+		this.guildNames = null;
+		this.playerGuilds = null;
+		getCommand("magicspellsguilds").setExecutor(null);
 		HandlerList.unregisterAll((Plugin)this);
 	}
 	
@@ -99,52 +111,59 @@ public class MagicSpellsTeams extends JavaPlugin implements Listener {
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		if (this.useCache) {
-			this.playerTeams.remove(event.getPlayer().getName());
+			this.playerGuilds.remove(event.getPlayer().getName());
+		}
+	}
+
+	@EventHandler
+	public void onPlayerQuit(PlayerQuitEvent event) {
+		if (this.useCache) {
+			this.parties.remove(event.getPlayer().getName());
 		}
 	}
 	
 	@EventHandler
 	public void onPlayerDeath(PlayerDeathEvent event) {
 		if (this.useCache && this.clearCacheOnDeath) {
-			this.playerTeams.remove(event.getEntity().getName());
+			this.playerGuilds.remove(event.getEntity().getName());
 		}
 	}
 	
-	public Team getTeam(Player player) {
+	public Guild getGuild(Player player) {
 		String playerName = player.getName();
 		if (this.useCache) {
-			Team team = this.playerTeams.get(playerName);
-			if (team != null) return team;
+			Guild guild = this.playerGuilds.get(playerName);
+			if (guild != null) return guild;
 		}
-		for (Team team : this.teams) {
-			if (team.inTeam(player)) {
-				if (this.useCache) this.playerTeams.put(playerName, team);
-				return team;
+		for (Guild guild : this.guilds) {
+			if (guild.inGuild(player)) {
+				if (this.useCache) this.playerGuilds.put(playerName, guild);
+				return guild;
 			}
 		}
 		return null;
 	}
 	
 	public boolean canTarget(Player caster, Player target) {
-		Team casterTeam = getTeam(caster);
-		Team targetTeam = getTeam(target);
+		Guild casterGuild = getGuild(caster);
+		Guild targetGuild = getGuild(target);
 		
 		// Allow targeting if one of the players is not in a team
-		if (casterTeam == null || targetTeam == null) return true;
+		if (casterGuild == null || targetGuild == null) return true;
 		
 		// If same team, check friendly fire
-		if (casterTeam == targetTeam) return casterTeam.allowFriendlyFire();
+		if (casterGuild == targetGuild) return casterGuild.allowFriendlyFire();
 		
 		// Otherwise check if can target
-		return casterTeam.canTarget(targetTeam);
+		return casterGuild.canTarget(targetGuild);
+	}
+
+	public Guild getGuildByName(String name) {
+		return this.guildNames.get(name);
 	}
 	
-	public Team getTeamByName(String name) {
-		return this.teamNames.get(name);
-	}
-	
-	public Set<String> getTeamNames() {
-		return new TreeSet<>(this.teamNames.keySet());
+	public Set<String> getGuildNames() {
+		return new TreeSet<>(this.guildNames.keySet());
 	}
 	
 }

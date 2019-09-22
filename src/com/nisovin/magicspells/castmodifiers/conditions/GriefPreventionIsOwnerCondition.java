@@ -36,8 +36,9 @@ public class GriefPreventionIsOwnerCondition extends Condition {
 
 	@Override
 	public boolean check(Player player, Location location) {
-		// Locations, coming soon.
-		return false;
+		Claim currentClaim = GriefPrevention.instance.dataStore.getClaimAt(location, false, null);
+		if (currentClaim == null) return false;
+		return (player.getUniqueId().equals(currentClaim.ownerID));
 	}
 
 }

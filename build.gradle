@@ -39,7 +39,7 @@ configurations {
     spigot
     mscore.extendsFrom(compile)
     factions.extendsFrom(spigot)
-    teams.extendsFrom(spigot)
+    guilds.extendsFrom(spigot)
     memory.extendsFrom(spigot)
     towny.extendsFrom(spigot)
     shop.extendsFrom(spigot)
@@ -55,7 +55,7 @@ dependencies {
   mscore magicspellsClasspathBase()
   factions magicspellsClasspathFactions()
   factions configurations.mscore.artifacts.getFiles()
-  teams configurations.mscore.artifacts.getFiles()
+  guilds configurations.mscore.artifacts.getFiles()
   memory configurations.mscore.artifacts.getFiles()
   towny configurations.mscore.artifacts.getFiles()
   towny magicspellsClasspathTowny()
@@ -68,9 +68,9 @@ public class MSConfig {
   String coreSrcDir = 'src'
   String coreBuildDir = 'bin'
 
-  String teamsVersion = '1.0'
-  String teamsSrcDir = 'src_teams'
-  String teamsBuildDir = 'bin_teams'
+  String guildsVersion = '0.1'
+  String guildsSrcDir = 'src_guilds'
+  String guildsBuildDir = 'bin_guilds'
 
   String memoryVersion = '1.2'
   String memorySrcDir = 'src_memory'
@@ -94,7 +94,7 @@ public class MSConfig {
 
   // Java versions
   def javaCoreVersion = '1.8'
-  def javaTeamsVersion = '1.8'
+  def javaGuildsVersion = '1.8'
   def javaMemoryVersion = '1.8'
   def javaShopVersion = '1.8'
   def javaTownyVersion = '1.8'
@@ -109,13 +109,14 @@ public class MSConfig {
   def resourceNcpUrl = 'https://ci.md-5.net/job/NoCheatPlus/lastSuccessfulBuild/artifact/target/NoCheatPlus.jar'
   def resourcePlaceholderapiUrl = 'http://repo.extendedclip.com/content/repositories/placeholderapi/me/clip/placeholderapi/2.8.2/placeholderapi-2.8.2.jar'
   def resourceGriefPreventionUrl = 'https://github.com/TechFortress/GriefPrevention/releases/download/16.8/GriefPrevention.jar'
+  def resourceOpenTerrainGeneratorUrl = 'https://github.com/PG85/OpenTerrainGenerator/releases/download/1.12.2v6/OpenTerrainGenerator-1.12.2+-+v6.jar'
 
   def versionSuffix
 
   String stringVersionCore
   String stringVersionFactions
   String stringVersionMemory
-  String stringVersionTeams
+  String stringVersionGuilds
   String stringVersionTowny
   String stringVersionShop
 }
@@ -146,6 +147,9 @@ def magicspellsGetResources() {
 
   // Get GriefPrevention
   downloadFile(new File(libFolder, 'GriefPrevention.jar'), new URL(project.ext.magicspellsData.resourceGriefPreventionUrl))
+
+  // Get Guilds
+  downloadFile(new File(libFolder, 'OpenTerrainGenerator.jar'), new URL(project.ext.magicspellsData.resourceOpenTerrainGeneratorUrl))
 
   println 'Finished running the get resources phase'
 }
@@ -191,7 +195,7 @@ Spec<? super File> ymlFilter() {
 
 def magicspellsClean() {
   // Delete old working directories
-  project.delete project.ext.magicspellsData.coreBuildDir, project.ext.magicspellsData.teamsBuildDir, project.ext.magicspellsData.memoryBuildDir, project.ext.magicspellsData.shopBuildDir, project.ext.magicspellsData.townyBuildDir, project.ext.magicspellsData.factionsBuildDir, project.ext.magicspellsData.docDir, project.ext.magicspellsData.distDir
+  project.delete project.ext.magicspellsData.coreBuildDir, project.ext.magicspellsData.guildsBuildDir, project.ext.magicspellsData.memoryBuildDir, project.ext.magicspellsData.shopBuildDir, project.ext.magicspellsData.townyBuildDir, project.ext.magicspellsData.factionsBuildDir, project.ext.magicspellsData.docDir, project.ext.magicspellsData.distDir
   project.file(project.ext.magicspellsData.distDir).mkdir()
 }
 
@@ -199,7 +203,7 @@ project.tasks.getByPath("clean").doFirst({magicspellsClean()})
 
 def cleanYmlFiles() {
     def files = project.files(project.ext.magicspellsData.coreBuildDir)
-      .plus(project.files(project.ext.magicspellsData.teamsBuildDir))
+      .plus(project.files(project.ext.magicspellsData.guildsBuildDir))
       .plus(project.files(project.ext.magicspellsData.memoryBuildDir))
       .plus(project.files(project.ext.magicspellsData.shopBuildDir))
       .plus(project.files(project.ext.magicspellsData.townyBuildDir))
@@ -328,43 +332,43 @@ task magicspellsCoreJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.S
 }
 
 // FIXME do more of this at build time, not config time
-task magicspellsTeamsCompile(type: JavaCompile) {
-  description = 'Compile the teams addon'
+task magicspellsGuildsCompile(type: JavaCompile) {
+  description = 'Compile the Guilds addon'
   dependsOn = [
     'magicspellsCoreJar'
   ]
-  msconfig.stringVersionTeams = "${msconfig.teamsVersion}-${msconfig.versionSuffix}"
-  File buildDir = project.file(msconfig.teamsBuildDir)
+  msconfig.stringVersionGuilds = "${msconfig.guildsVersion}-${msconfig.versionSuffix}"
+  File buildDir = project.file(msconfig.guildsBuildDir)
   buildDir.mkdir()
   destinationDir = buildDir
-  source(msconfig.teamsSrcDir)
+  source(msconfig.guildsSrcDir)
 
-  classpath = configurations.teams
+  classpath = configurations.guilds
 
-  sourceCompatibility = msconfig.javaTeamsVersion
+  sourceCompatibility = msconfig.javaGuildsVersion
 }
 
 // FIXME fix up this task
-task magicspellsTeamsCopyResources(type: Copy) {
-  description = 'Copy yml resources for MagicSpellsTeams'
-  from(msconfig.teamsSrcDir) {
+task magicspellsGuildsCopyResources(type: Copy) {
+  description = 'Copy yml resources for MagicSpellsGuilds'
+  from(msconfig.guildsSrcDir) {
     include "**${File.separator}*.yml"
   }
   expand(project.properties)
-  into "${msconfig.teamsBuildDir}"
+  into "${msconfig.guildsBuildDir}"
 }
 
 // FIXME do more of this at build time, not config time
-task magicspellsTeamsJar(type: Jar) {
-  description = 'Create the teams addon jar'
+task magicspellsGuildsJar(type: Jar) {
+  description = 'Create the guilds addon jar'
   dependsOn = [
-    'magicspellsTeamsCompile',
-    'magicspellsTeamsCopyResources'
+    'magicspellsGuildsCompile',
+    'magicspellsGuildsCopyResources'
   ]
-  archiveName = "MagicSpellsTeams-${msconfig.teamsVersion}-${msconfig.versionSuffix}.jar"
-  if (project.hasProperty("${OPTION_DEPLOYMENT_NAMING}")) archiveName = 'MagicSpellsTeams.jar'
+  archiveName = "MagicSpellsGuilds-${msconfig.guildsVersion}-${msconfig.versionSuffix}.jar"
+  if (project.hasProperty("${OPTION_DEPLOYMENT_NAMING}")) archiveName = 'MagicSpellsGuilds.jar'
   destinationDir = project.file(msconfig.distDir)
-  from("${msconfig.teamsBuildDir}")
+  from("${msconfig.guildsBuildDir}")
 }
 
 // FIXME do more of this at build time, not config time
@@ -536,14 +540,14 @@ task magicspellsZip(type: Zip) {
     'magicspellsCoreJar',
     'magicspellsMemoryJar',
     'magicspellsShopJar',
-    'magicspellsTeamsJar',
+    'magicspellsGuildsJar',
     'magicspellsTownyJar',
     'magicspellsFactionsJar'
   ]
 
   File distDir = project.file(msconfig.distDir)
 
-  from magicspellsCoreJar, magicspellsMemoryJar, magicspellsShopJar, magicspellsTeamsJar, magicspellsTownyJar, magicspellsFactionsJar
+  from magicspellsCoreJar, magicspellsMemoryJar, magicspellsShopJar, magicspellsGuildsJar, magicspellsTownyJar, magicspellsFactionsJar
   eachFile({
     fcd -> println(fcd.getName())
     })
@@ -555,7 +559,7 @@ task magicspellsJarAll() {
   description = 'Make all the jars and zip them'
   dependsOn = [
     'magicspellsCoreJar',
-    'magicspellsTeamsJar',
+    'magicspellsGuildsJar',
     'magicspellsMemoryJar',
     'magicspellsShopJar',
     'magicspellsTownyJar',
@@ -594,7 +598,7 @@ publishing {
 
 artifacts {
   mscore magicspellsCoreJar
-  teams magicspellsTeamsJar
+  guilds magicspellsGuildsJar
   memory magicspellsMemoryJar
   shop magicspellsShopJar
   towny magicspellsTownyJar
