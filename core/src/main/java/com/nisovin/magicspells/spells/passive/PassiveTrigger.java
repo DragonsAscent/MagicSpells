@@ -1,14 +1,12 @@
 package com.nisovin.magicspells.spells.passive;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.HashMap;
-import java.util.HashSet;
-
+import com.nisovin.magicspells.MagicSpells;
 import org.bukkit.event.EventPriority;
 
-import com.nisovin.magicspells.MagicSpells;
-import org.bukkit.inventory.Inventory;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class PassiveTrigger {
 	
@@ -24,7 +22,7 @@ public class PassiveTrigger {
 		triggerPrioritySuffix.put(EventPriority.HIGHEST, "_highestpriority");
 		triggerPrioritySuffix.put(EventPriority.MONITOR, "_monitorpriority");
 	}
-	
+
 	public static Set<PassiveTrigger> TAKE_DAMAGE = addTriggers("takedamage", TakeDamageListener.class);
 	public static Set<PassiveTrigger> GIVE_DAMAGE = addTriggers("givedamage", GiveDamageListener.class);
 	public static Set<PassiveTrigger> FATAL_DAMAGE = addTriggers("fataldamage", FatalDamageListener.class);
@@ -82,6 +80,8 @@ public class PassiveTrigger {
 	
 	public static Set<PassiveTrigger> START_GLIDE = addTriggers("startglide", GlideListener.class);
 	public static Set<PassiveTrigger> STOP_GLIDE = addTriggers("stopglide", GlideListener.class);
+	public static Set<PassiveTrigger> START_SWIM = addTriggers("startswim", SwimListener.class);
+	public static Set<PassiveTrigger> STOP_SWIM = addTriggers("stopswim", SwimListener.class);
 	public static Set<PassiveTrigger> SIGN_BOOK = addTriggers("signbook", SignBookListener.class);
 	
 	

@@ -1,21 +1,11 @@
 package com.nisovin.magicspells.util;
 
-import java.util.Set;
-import java.util.List;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.ArrayList;
-
-import org.bukkit.GameMode;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.Monster;
-import org.bukkit.entity.Animals;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.LivingEntity;
-
-import com.nisovin.magicspells.Spell;
 import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.Spell;
+import org.bukkit.GameMode;
+import org.bukkit.entity.*;
+
+import java.util.*;
 
 public class ValidTargetList {
 	
@@ -27,7 +17,12 @@ public class ValidTargetList {
 		TARGET_NONPLAYERS,
 		TARGET_MONSTERS,
 		TARGET_ANIMALS,
-		TARGET_NONLIVING_ENTITIES
+		TARGET_NONLIVING_ENTITIES,
+		TARGET_MOUNTS,
+		TARGET_PASSENGERS,
+		TARGET_CASTER_MOUNT,
+		TARGET_CASTER_PASSENGER,
+		TARGET_ENTITY_TARGET
 		
 	}
 
@@ -40,6 +35,11 @@ public class ValidTargetList {
 	private boolean targetInvisibles = false;
 	private boolean targetNonPlayers = false;
 	private boolean targetNonLivingEntities = false; // This will be kept as false for now during restructuring
+	private boolean targetMounts = false;
+	private boolean targetPassengers = false;
+	private boolean targetCasterMount = false;
+	private boolean targetCasterPassenger = false;
+	private boolean targetEntityTarget = false;
 
 	public ValidTargetList(Spell spell, String list) {
 		if (list != null) {
@@ -70,6 +70,21 @@ public class ValidTargetList {
 				break;
 			case TARGET_PLAYERS:
 				targetPlayers = value;
+				break;
+			case TARGET_MOUNTS:
+				targetMounts = value;
+				break;
+			case TARGET_PASSENGERS:
+				targetPassengers = value;
+				break;
+			case TARGET_CASTER_MOUNT:
+				targetCasterMount = value;
+				break;
+			case TARGET_CASTER_PASSENGER:
+				targetCasterPassenger = value;
+				break;
+			case TARGET_ENTITY_TARGET:
+				targetEntityTarget = value;
 				break;
 		}
 	}
@@ -113,6 +128,26 @@ public class ValidTargetList {
 				case "animals":
 					targetAnimals = true;
 					break;
+				case "mount":
+				case "mounts":
+					targetMounts = true;
+					break;
+				case "passengers":
+				case "riders":
+					targetPassengers = true;
+					break;
+				case "castermount":
+				case "selfmount":
+					targetCasterMount = true;
+					break;
+				case "casterpassenger":
+				case "selfpassenger":
+					targetCasterPassenger = true;
+					break;
+				case "entitytarget":
+				case "mobtarget":
+					targetEntityTarget = true;
+					break;
 				default:
 					EntityType type = Util.getEntityType(s);
 					if (type != null) types.add(type);
@@ -133,6 +168,7 @@ public class ValidTargetList {
 	public boolean canTarget(LivingEntity caster, Entity target, boolean targetPlayers) {
 		if (!(target instanceof LivingEntity) && !targetNonLivingEntities) return false;
 		boolean targetIsPlayer = target instanceof Player;
+		// Todo, Make it optional for both CREATIVE and SPECTATOR to be no target
 		if (targetIsPlayer && ((Player) target).getGameMode() == GameMode.CREATIVE) return false;
 		if (targetIsPlayer && ((Player) target).getGameMode() == GameMode.SPECTATOR) return false;
 		if (targetSelf && target.equals(caster)) return true;
@@ -142,6 +178,13 @@ public class ValidTargetList {
 		if (targetNonPlayers && !targetIsPlayer) return true;
 		if (targetMonsters && target instanceof Monster) return true;
 		if (targetAnimals && target instanceof Animals) return true;
+		// Lets target mounts
+		if (targetPassengers && target instanceof LivingEntity && target.isInsideVehicle()) return true;
+		if (targetMounts && target instanceof LivingEntity && !target.getPassengers().isEmpty() && !target.isInsideVehicle()) return true;
+		if (targetCasterPassenger && target instanceof LivingEntity && target.isInsideVehicle() && target.getVehicle().equals(caster)) return true;
+		if (targetCasterMount && target instanceof LivingEntity && caster.isInsideVehicle() && caster.getVehicle().equals(target)) return true;
+		// Help with some mob targeting, this SPECIFICALLY targets the mobs ai target
+		if (targetEntityTarget && (caster instanceof Creature) && ((Creature) caster).getTarget() != null && ((Creature) caster).getTarget().equals(target)) return true;
 		if (types.contains(target.getType())) return true;
 		return false;
 	}
@@ -149,12 +192,16 @@ public class ValidTargetList {
 	public boolean canTarget(Entity target) {
 		if (!(target instanceof LivingEntity) && !targetNonLivingEntities) return false;
 		boolean targetIsPlayer = target instanceof Player;
+		// Todo, Make it optional for both CREATIVE and SPECTATOR to be no target
 		if (targetIsPlayer && ((Player) target).getGameMode() == GameMode.CREATIVE) return false;
 		if (targetIsPlayer && ((Player) target).getGameMode() == GameMode.SPECTATOR) return false;
 		if (targetPlayers && targetIsPlayer) return true;
 		if (targetNonPlayers && !targetIsPlayer) return true;
 		if (targetMonsters && target instanceof Monster) return true;
 		if (targetAnimals && target instanceof Animals) return true;
+		// Lets target mounts (Again...)
+		if (targetPassengers && target instanceof LivingEntity && !target.getVehicle().isEmpty()) return true;
+		if (targetMounts && target instanceof LivingEntity && !target.getPassengers().isEmpty() && target.getVehicle().isEmpty()) return true;
 		if (types.contains(target.getType())) return true;
 		return false;
 	}
@@ -197,6 +244,26 @@ public class ValidTargetList {
 		return targetSelf;
 	}
 
+	public boolean canTargetMounts() {
+		return targetMounts;
+	}
+
+	public boolean canTargetPassengers() {
+		return targetPassengers;
+	}
+
+	public boolean canTargetCasterMount() {
+		return targetCasterMount;
+	}
+
+	public boolean canTargetCasterPassenger() {
+		return targetCasterPassenger;
+	}
+
+	public boolean canTargetEntityTarget() {
+		return targetEntityTarget;
+	}
+
 	public boolean canTargetLivingEntities() {
 		return targetNonPlayers || targetMonsters || targetAnimals;
 	}
@@ -214,6 +281,11 @@ public class ValidTargetList {
 			+ ",targetNonPlayers=" + targetNonPlayers
 			+ ",targetMonsters=" + targetMonsters
 			+ ",targetAnimals=" + targetAnimals
+			+ ",targetMounts=" + targetMounts
+			+ ",targetPassengers=" + targetPassengers
+			+ ",targetCasterMount=" + targetCasterMount
+			+ ",targetCasterPassenger=" + targetCasterPassenger
+			+ ",targetEntityTarget=" + targetEntityTarget
 			+ ",types=" + types
 			+ ",targetNonLivingEntities=" + targetNonLivingEntities
 			+ ']';

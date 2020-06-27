@@ -1,10 +1,10 @@
 package com.nisovin.magicspells.variables;
 
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Collections;
-
 import com.nisovin.magicspells.variables.meta.*;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 // TODO look into GENERIC_FLYING_SPEED attribute
 // TODO look into GENERIC_MOVEMENT_SPEED attribute
@@ -48,6 +48,10 @@ public class SpecialVariables {
 		specialVariables.put("meta_bed_location_z", new BedCoordZVariable());
 		specialVariables.put("meta_altitude", new AltitudeVariable());
 		specialVariables.put("meta_absorption", new AbsorptionVariable());
+		specialVariables.put("meta_timestamp_days", new TimestampDaysVariable());
+		specialVariables.put("meta_timestamp_hours", new TimestampHoursVariable());
+		specialVariables.put("meta_timestamp_minutes", new TimestampMinutesVariable());
+		specialVariables.put("meta_timestamp_seconds", new TimestampSecondsVariable());
 
 		specialVariables.put("meta_attribute_generic_armor_base", new AttributeBaseValueVariable("GENERIC_ARMOR"));
 		specialVariables.put("meta_attribute_generic_armor_toughness_base", new AttributeBaseValueVariable("GENERIC_ARMOR_TOUGHNESS"));
