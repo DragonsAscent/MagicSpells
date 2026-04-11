@@ -4,10 +4,8 @@ import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.util.CastResult;
 
 import org.bukkit.Location;
-import org.bukkit.Particle;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.util.Vector;
-import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import com.nisovin.magicspells.MagicSpells;
