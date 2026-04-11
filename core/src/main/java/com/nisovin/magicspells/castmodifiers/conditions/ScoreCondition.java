@@ -8,7 +8,6 @@ import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 
 import com.nisovin.magicspells.castmodifiers.Condition;
-import com.nisovin.magicspells.util.SpellData;
 import com.nisovin.magicspells.util.Name;
 
 /**
