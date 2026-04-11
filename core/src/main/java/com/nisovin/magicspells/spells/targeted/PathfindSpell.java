@@ -155,7 +155,12 @@ public class PathfindSpell extends TargetedSpell implements TargetedLocationSpel
         }
         Set<Node> closed = new HashSet<>();
         PriorityQueue<Node> open = new PriorityQueue<>();
-        org.bukkit.World world = start.getWorld();
+        org.bukkit.World startWorld = start.getWorld();
+        org.bukkit.World goalWorld = goal.getWorld();
+        if (startWorld == null || goalWorld == null || !startWorld.equals(goalWorld)) {
+            return null;
+        }
+        org.bukkit.World world = startWorld;
         Node startNode = new Node(start, null, 0, start.distance(goal));
         Node goalNode = new Node(goal, null, 0, 0);
         open.add(startNode);
