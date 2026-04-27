@@ -59,11 +59,10 @@ public class ScoreCondition extends Condition {
     }
 
     private boolean checkScore(LivingEntity entity) {
-        if (entity == null) return false;
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
         Objective obj = scoreboard.getObjective(objectiveName);
         if (obj == null) return false;
-        int score = obj.getScore(entity.getName()).getScore();
+        int score = obj.getScoreFor(entity).getScore();
         return compare(score, operator, value);
     }
 

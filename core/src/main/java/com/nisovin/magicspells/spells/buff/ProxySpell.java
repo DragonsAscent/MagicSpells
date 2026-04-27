@@ -24,14 +24,12 @@ import com.nisovin.magicspells.util.SpellData;
 
 public class ProxySpell extends BuffSpell implements Listener {
 
-	private final Map<UUID, SpellData> proxies;
-	private final Set<UUID> redirecting;
+    private final Set<UUID> redirecting = new HashSet<>();
+	private final Map<UUID, SpellData> proxies = new HashMap<>();
 
 	public ProxySpell(MagicConfig config, String spellName) {
 		super(config, spellName);
-
-		proxies = new HashMap<>();
-		redirecting = new HashSet<>();
+	}
 	}
 
 	@Override
@@ -69,10 +67,9 @@ public class ProxySpell extends BuffSpell implements Listener {
 		LivingEntity proxyTarget = getProxyTarget(target);
 		if (proxyTarget == null) return;
 
-		SpellData subData = event.getSpellData().target(proxyTarget);
-		playRedirectEffects(target, proxyTarget, subData);
-
 		event.setTarget(proxyTarget);
+		playRedirectEffects(target, proxyTarget, event.getSpellData());
+
 		addUseAndChargeCost(target);
 	}
 
@@ -93,7 +90,7 @@ public class ProxySpell extends BuffSpell implements Listener {
 
 	@EventHandler(ignoreCancelled = true)
 	public void onEntityDamage(EntityDamageByEntityEvent event) {
-		if (!(event.getEntity() instanceof LivingEntity target) || !target.isValid()) return;
+		if (!(event.getEntity() instanceof LivingEntity target)) return;
 
 		LivingEntity proxyTarget = getProxyTarget(target);
 		if (proxyTarget == null) return;
