@@ -17,6 +17,11 @@ import com.nisovin.magicspells.events.SpellTargetLocationEvent;
 
 public class PathfindSpell extends TargetedSpell implements TargetedLocationSpell, TargetedEntitySpell {
 
+    private static final List<Vector> CARDINAL_DIRECTIONS = createDirections(false);
+    private static final List<Vector> ALL_DIRECTIONS = createDirections(true);
+    private static final List<Vector> SURFACE_CARDINAL_DIRECTIONS = createSurfaceDirections(false);
+    private static final List<Vector> SURFACE_DIAGONAL_DIRECTIONS = createSurfaceDirections(true);
+
     private final ConfigData<Integer> maxPathLength;
     private final ConfigData<Boolean> allowDiagonal;
     private final ConfigData<String> spellToCastName;
@@ -151,6 +156,7 @@ public class PathfindSpell extends TargetedSpell implements TargetedLocationSpel
             @Override public int hashCode() { return Objects.hash(x, y, z, world); }
         }
         Set<Node> closed = new HashSet<>();
+        Map<Node, Double> bestCosts = new HashMap<>();
         PriorityQueue<Node> open = new PriorityQueue<>();
         org.bukkit.World startWorld = start.getWorld();
         org.bukkit.World goalWorld = goal.getWorld();
@@ -158,13 +164,17 @@ public class PathfindSpell extends TargetedSpell implements TargetedLocationSpel
             return null;
         }
         org.bukkit.World world = startWorld;
-        Node startNode = new Node(start, null, 0, start.distance(goal));
+        Node startNode = new Node(start, null, 0, getHeuristic(start, goal, allowDiagonal, throughBlocks));
         Node goalNode = new Node(goal, null, 0, 0);
         open.add(startNode);
+        bestCosts.put(startNode, 0D);
         int expanded = 0;
         int maxNodes = 10000; // hard limit to prevent infinite loops
         while (!open.isEmpty() && expanded < maxNodes) {
             Node curr = open.poll();
+            double bestKnownCost = bestCosts.getOrDefault(curr, Double.POSITIVE_INFINITY);
+            if (curr.g > bestKnownCost || curr.g > maxLength || closed.contains(curr)) continue;
+
             if (curr.x == goalNode.x && curr.y == goalNode.y && curr.z == goalNode.z && curr.world.equals(goalNode.world)) {
                 List<Location> path = new ArrayList<>();
                 for (Node n = curr; n != null; n = n.parent) {
@@ -172,32 +182,26 @@ public class PathfindSpell extends TargetedSpell implements TargetedLocationSpel
                 }
                 return path;
             }
-            if (closed.contains(curr) || curr.g > maxLength) continue;
+
             closed.add(curr);
             expanded++;
             if (attempted != null) attempted.add(new Location(world, curr.x, curr.y, curr.z));
-            for (Vector dir : getDirections(allowDiagonal)) {
-                int nx = curr.x + dir.getBlockX();
-                int ny = curr.y + dir.getBlockY();
-                int nz = curr.z + dir.getBlockZ();
-                Location nextLoc = new Location(world, nx, ny, nz);
-                int dy = ny - curr.y;
-                if (Math.abs(dy) > maxStep) {
-                    // Only allow if climbing and all blocks between are climbable
-                    boolean canClimb = true;
-                    int step = dy > 0 ? 1 : -1;
-                    for (int ystep = curr.y + step; ystep != ny + step; ystep += step) {
-                        Location climbLoc = new Location(world, nx, ystep, nz);
-                        if (!isClimbable(climbLoc.getBlock().getType())) {
-                            canClimb = false;
-                            break;
-                        }
-                    }
-                    if (!canClimb) continue;
-                }
-                if (!isWalkable(nextLoc.getBlock(), throughBlocks)) continue;
-                Node nextNode = new Node(nextLoc, curr, curr.g + 1, nextLoc.distance(goal));
+            for (Vector dir : getDirections(allowDiagonal, throughBlocks)) {
+                Location nextLoc = throughBlocks
+                    ? resolveThroughBlockNeighbor(world, curr.x, curr.y, curr.z, dir, maxStep)
+                    : resolveSurfaceNeighbor(world, curr.x, curr.y, curr.z, dir, maxStep);
+                if (nextLoc == null) continue;
+
+                double nextCost = curr.g + 1;
+                if (nextCost > maxLength) continue;
+
+                Node nextNode = new Node(nextLoc, curr, nextCost, getHeuristic(nextLoc, goal, allowDiagonal, throughBlocks));
                 if (closed.contains(nextNode)) continue;
+
+                double previousBest = bestCosts.getOrDefault(nextNode, Double.POSITIVE_INFINITY);
+                if (nextCost >= previousBest) continue;
+
+                bestCosts.put(nextNode, nextCost);
                 open.add(nextNode);
             }
         }
@@ -208,7 +212,15 @@ public class PathfindSpell extends TargetedSpell implements TargetedLocationSpel
         return org.bukkit.Tag.CLIMBABLE.isTagged(material);
     }
 
-    private List<Vector> getDirections(boolean diagonal) {
+    private List<Vector> getDirections(boolean diagonal, boolean throughBlocks) {
+        if (throughBlocks) {
+            return diagonal ? ALL_DIRECTIONS : CARDINAL_DIRECTIONS;
+        }
+
+        return diagonal ? SURFACE_DIAGONAL_DIRECTIONS : SURFACE_CARDINAL_DIRECTIONS;
+    }
+
+    private static List<Vector> createDirections(boolean diagonal) {
         List<Vector> dirs = new ArrayList<>();
         for (int dx = -1; dx <= 1; dx++)
             for (int dy = -1; dy <= 1; dy++)
@@ -217,7 +229,73 @@ public class PathfindSpell extends TargetedSpell implements TargetedLocationSpel
                     if (!diagonal && Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > 1) continue;
                     dirs.add(new Vector(dx, dy, dz));
                 }
-        return dirs;
+        return Collections.unmodifiableList(dirs);
+    }
+
+    private static List<Vector> createSurfaceDirections(boolean diagonal) {
+        List<Vector> dirs = new ArrayList<>();
+        for (int dx = -1; dx <= 1; dx++)
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) continue;
+                if (!diagonal && Math.abs(dx) + Math.abs(dz) > 1) continue;
+                dirs.add(new Vector(dx, 0, dz));
+            }
+        return Collections.unmodifiableList(dirs);
+    }
+
+    private Location resolveThroughBlockNeighbor(org.bukkit.World world, int currX, int currY, int currZ, Vector dir, int maxStep) {
+        int nx = currX + dir.getBlockX();
+        int ny = currY + dir.getBlockY();
+        int nz = currZ + dir.getBlockZ();
+
+        if (ny < world.getMinHeight() || ny >= world.getMaxHeight()) return null;
+
+        int dy = ny - currY;
+        if (Math.abs(dy) > maxStep) {
+            boolean canClimb = true;
+            int step = dy > 0 ? 1 : -1;
+            for (int ystep = currY + step; ystep != ny + step; ystep += step) {
+                Location climbLoc = new Location(world, nx, ystep, nz);
+                if (!isClimbable(climbLoc.getBlock().getType())) {
+                    canClimb = false;
+                    break;
+                }
+            }
+            if (!canClimb) return null;
+        }
+
+        Location nextLoc = new Location(world, nx, ny, nz);
+        return isWalkable(nextLoc.getBlock(), true) ? nextLoc : null;
+    }
+
+    private Location resolveSurfaceNeighbor(org.bukkit.World world, int currX, int currY, int currZ, Vector dir, int maxStep) {
+        int nx = currX + dir.getBlockX();
+        int nz = currZ + dir.getBlockZ();
+        int maxY = Math.min(currY + Math.max(maxStep, 0), world.getMaxHeight() - 1);
+
+        for (int y = maxY; y >= world.getMinHeight(); y--) {
+            Block feetBlock = world.getBlockAt(nx, y, nz);
+            if (!isWalkable(feetBlock, false)) continue;
+            return new Location(world, nx, y, nz);
+        }
+
+        return null;
+    }
+
+    private double getHeuristic(Location from, Location goal, boolean allowDiagonal, boolean throughBlocks) {
+        int dx = Math.abs(from.getBlockX() - goal.getBlockX());
+        int dy = Math.abs(from.getBlockY() - goal.getBlockY());
+        int dz = Math.abs(from.getBlockZ() - goal.getBlockZ());
+
+        if (!throughBlocks) {
+            return allowDiagonal ? Math.max(dx, dz) : dx + dz;
+        }
+
+        if (allowDiagonal) {
+            return Math.max(dx, Math.max(dy, dz));
+        }
+
+        return dx + dy + dz;
     }
 
     private boolean isWalkable(Block block, boolean throughBlocks) {
