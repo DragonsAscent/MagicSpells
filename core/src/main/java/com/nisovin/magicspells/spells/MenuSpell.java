@@ -71,19 +71,31 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 		for (String optionName : optionKeys) {
 			String path = "options." + optionName + ".";
 
-			List<Integer> slots = getConfigIntList(path + "slots", new ArrayList<>());
-			if (slots.isEmpty()) slots.add(getConfigInt(path + "slot", -1));
+			List<Integer> configuredSlots = getConfigIntList(path + "slots", new ArrayList<>());
+			if (configuredSlots.isEmpty()) configuredSlots.add(getConfigInt(path + "slot", -1));
+			List<Integer> configuredValidSlots = getConfigIntList(path + "valid-slots", new ArrayList<>());
 
-			List<Integer> validSlots = new ArrayList<>();
-			for (int slot : slots) {
+			List<Integer> slots = new ArrayList<>();
+			for (int slot : configuredSlots) {
 				if (slot < 0 || slot > 53) {
 					MagicSpells.error("MenuSpell '" + internalName + "' a slot defined which is out of bounds for '" + optionName + "': " + slot);
+					continue;
+				}
+				slots.add(slot);
+				if (slot > maxSlot) maxSlot = slot;
+			}
+
+			List<Integer> validSlots = new ArrayList<>();
+			for (int slot : configuredValidSlots) {
+				if (slot < 0 || slot > 53) {
+					MagicSpells.error("MenuSpell '" + internalName + "' has a valid-slots entry out of bounds for '" + optionName + "': " + slot);
 					continue;
 				}
 				validSlots.add(slot);
 				if (slot > maxSlot) maxSlot = slot;
 			}
-			if (validSlots.isEmpty()) {
+
+			if (slots.isEmpty() && validSlots.isEmpty()) {
 				MagicSpells.error("MenuSpell '" + internalName + "' has no slots defined for: " + optionName);
 				continue;
 			}
@@ -120,7 +132,8 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 
 			MenuOption option = new MenuOption();
 			option.menuOptionName = optionName;
-			option.slots = validSlots;
+			option.slots = slots;
+			option.validSlots = validSlots;
 			option.item = item;
 			option.items = items;
 			option.quantity = getConfigString(path + "quantity", "");
@@ -297,6 +310,12 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 			for (int slot : option.slots) {
 				if (inv.getItem(slot) == null) inv.setItem(slot, item);
 			}
+
+			for (int slot : option.validSlots) {
+				if (inv.getItem(slot) != null) continue;
+				inv.setItem(slot, item);
+				break;
+			}
 		}
 		// Fill inventory.
 		if (filler == null) return;
@@ -438,6 +457,7 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 
 		private String menuOptionName;
 		private List<Integer> slots;
+		private List<Integer> validSlots;
 		private ItemStack item;
 		private List<ItemStack> items;
 		private String quantity;
