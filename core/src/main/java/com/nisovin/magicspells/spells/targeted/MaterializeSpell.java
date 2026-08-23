@@ -224,10 +224,10 @@ public class MaterializeSpell extends TargetedSpell implements TargetedLocationS
 				if (restartPatternEachRow) rowPosition = 0;
 
 				for (int x = 0; x < rowSize; x++) {
+					if (rowPosition >= rowLength) rowPosition = 0;
+
 					Block placeBlock = start.clone().add(x, yOffset, z).getBlock();
 					Material blockMaterial = resolveBlockMaterial(placeBlock, patternPosition, rowPosition, layerDirection, layer);
-
-					if (rowPosition >= rowLength) rowPosition = 0;
 					rowPosition++;
 
 					Block supportBlock = placeBlock.getRelative(0, -layerDirection, 0);
