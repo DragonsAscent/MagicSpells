@@ -33,7 +33,7 @@ public class MaterializeSpell extends TargetedSpell implements TargetedLocationS
 
 	//Normal Features
 	private Set<Material> materials;
-	private Material material;
+	private Material defaultMaterial;
 	private int resetDelay;
 	private boolean falling;
 	private boolean applyPhysics;
@@ -45,6 +45,7 @@ public class MaterializeSpell extends TargetedSpell implements TargetedLocationS
 	private boolean usePattern;
 	private List<String> patterns;
 	private Material[][] rowPatterns;
+	private boolean hasPatterns;
 	private boolean restartPatternEachRow;
 	private boolean randomizePattern;
 	private boolean stretchPattern;
@@ -58,15 +59,15 @@ public class MaterializeSpell extends TargetedSpell implements TargetedLocationS
 	private int rowSize;
 	private int columnSize;
 
-	//Cuboid Checks;
-	private boolean hasMiddle;
-
 	public MaterializeSpell(MagicConfig config, String spellName) {
 		super(config, spellName);
 
 		String blockType = getConfigString("block-type", "stone");
-		material = Util.getMaterial(blockType);
-		if (material == null || !material.isBlock()) MagicSpells.error("MaterializeSpell '" + internalName + "' has an invalid block-type defined!");
+		defaultMaterial = Util.getMaterial(blockType);
+		if (defaultMaterial == null || !defaultMaterial.isBlock()) {
+			MagicSpells.error("MaterializeSpell '" + internalName + "' has an invalid block-type defined!");
+			defaultMaterial = Material.STONE;
+		}
 
 		resetDelay = getConfigInt("reset-delay", 0);
 		falling = getConfigBoolean("falling", false);
@@ -93,37 +94,23 @@ public class MaterializeSpell extends TargetedSpell implements TargetedLocationS
 	public void initialize() {
 		super.initialize();
 
-		//First, lets split the "area" that was given.
-		String[] areaParts = area.split("x", 2);
-
-		//Let's define the size of the row and column to form a shape array;
-		rowSize = Integer.parseInt(areaParts[0]);
-		columnSize = Integer.parseInt(areaParts[1]);
-
-		/*For this to work smoothly, we need to see if the shape array has a middle;
-		It becomes very complicated when working with shape arrays without a block as a geometrical middle
-		So unfortunately. Shape arrays without a block as its geometrical center cannot be accepted.
-		3x2, 9x8. Basically, if the product of the length and width is even. Don't use it. */
-		hasMiddle = ((rowSize * columnSize) % 2) == 1;
-
-		if (!hasMiddle && patterns != null) {
-			MagicSpells.error("MaterializeSpell " + internalName + " is using a shape array without a geometrical center! A single block will spawn instead.");
-		}
+		parseArea();
 
 		//After the reset-delay passes, we need to remove all the blocks that were materialized.
 		//We store them within "materials" and "rowPatterns" as well
 		boolean ready;
 
 		materials = new HashSet<>();
+		materials.add(defaultMaterial);
+		hasPatterns = usePattern && patterns != null && !patterns.isEmpty();
 
-		if (patterns != null) ready = parseBlocks(patterns);
+		if (hasPatterns) ready = parseBlocks(patterns);
 		else ready = false;
 
 		//If the parser failed, we'll have to force a string inside;
 		if (!ready) {
 			rowPatterns = new Material[1][1];
-			rowPatterns[0][0] = material;
-			materials.add(material);
+			rowPatterns[0][0] = defaultMaterial;
 		}
 	}
 
@@ -151,128 +138,114 @@ public class MaterializeSpell extends TargetedSpell implements TargetedLocationS
 
 		data = event.getSpellData();
 		block = event.getTargetLocation().getBlock();
+		against = resolveSupportBlock(against, block);
 
-		if (!hasMiddle) {
-			boolean done = materialize(caster, block, against, data);
-			if (!done) return noTarget(strFailed, data);
-			return new CastResult(PostCastAction.HANDLE_NORMALLY, data);
-		}
-
-		//Unfortunately, shape array placement is world relative, will fix later.
-		//This is the top-left edge of the shape array
-		Location patternStart = against.getLocation();
-
-		patternStart.setX(against.getX() - Math.ceil(rowSize / 2F));
-		patternStart.setZ(against.getZ() - Math.ceil(columnSize / 2F));
-
-		//spawnBlock is the current position in the loop where it will spawn the block
-		Location spawnBlock = patternStart;
-
-		Block air;
-		Block ground;
-
-			/*The row position dictates which block within a row pattern will be used
-			when placing the new block.*/
-		int rowPosition = 0;
-
-		int height = this.height.get(data);
-
-		//If height is 0, the code ceases to function. Let's not have that.
-		if (height == 0) height = 1;
-
-		//Let's start at the bottom floor then work our way up; or down if height is less than 0.
-		for (int y = 0; y < height; y++) {
-				/*The pattern position is the pattern being read for a specific row
-				This should always reset when it goes over into a new height.*/
-			int patternPosition = 0;
-
-			//The block placement loop will start finish a row of coloumns then move down a row.
-			for (int z = 0; z < columnSize; z++) {
-				//Everytime a shape row is finished, we need to start at the topleft and move down 1 row.
-				spawnBlock = patternStart.clone().add(0, y, z);
-
-				//Let's parse the list of patterns for that row.
-				if (patterns != null && patternPosition >= patterns.size()) patternPosition = 0;
-
-				int rowLength = getRowLength(patternPosition);
-
-				//If they want the pattern to restart on each row, reset rowpositon to 0.
-				if (restartPatternEachRow) rowPosition = 0;
-
-				//Let's spawn a block on each column before we move down a row.
-				for (int x = 0; x < rowSize; x++) {
-					ground = spawnBlock.getBlock();
-					air = ground.getRelative(BlockFace.UP);
-
-					//Now if we are looking for a block outside the rowlist range.
-					//We need to go back to the start and repeat that row pattern
-					if (rowPosition >= rowLength) rowPosition = 0;
-
-					//Doesn't really become a pattern if you randomize it but ok!
-					if (!stretchPattern || y < 1)
-						material = blockGenerator(randomizePattern, patternPosition, rowPosition);
-					else material = ground.getType();
-
-					//Add one to the row position so that it will move to the next block.
-					rowPosition++;
-
-					//As soon as a block can't be spawned, it will return an error.
-					boolean done = materialize(caster, air, ground, data.location(block.getLocation()));
-					if (!done) return noTarget(strFailed, data);
-
-					//Done with placing that one block? Move on to the next one.
-					spawnBlock.setX((ground.getX() + 1));
-				}
-				//If multiple patterns were requested, lets move to the next line.
-				patternPosition++;
-			}
-		}
-
-		return new CastResult(PostCastAction.HANDLE_NORMALLY, data);
+		return castAtResolvedBlock(caster, block, against, data);
 	}
 
 	@Override
 	public CastResult castAtLocation(SpellData data) {
+		Block targetBlock = resolveTargetBlock(data);
+		if (targetBlock == null) return noTarget(strFailed, data);
+
+		Block against = targetBlock.getRelative(BlockFace.DOWN);
+
 		if (!data.hasCaster()) {
-			Block block = data.location().getBlock();
-			if (block.getType().isAir()) {
-				boolean done = materialize(null, block, block, data);
-				return done ? new CastResult(PostCastAction.HANDLE_NORMALLY, data) : noTarget(strFailed, data);
-			}
-
-			Block block2 = block.getRelative(BlockFace.UP);
-			if (block2.getType().isAir()) {
-				data = data.location(block2.getLocation());
-
-				boolean done = materialize(null, block2, block, data);
-				return done ? new CastResult(PostCastAction.HANDLE_NORMALLY, data) : noTarget(strFailed, data);
-			}
-
-			return noTarget(strFailed, data);
+			return castAtResolvedBlock(null, targetBlock, against, data);
 		}
 
 		if (!(data.caster() instanceof Player caster)) return new CastResult(PostCastAction.ALREADY_HANDLED, data);
+		return castAtResolvedBlock(caster, targetBlock, against, data);
+	}
 
-		Location target = data.location();
-
-		Block block = target.getBlock();
-		Block against = target.add(target.getDirection()).getBlock();
-		if (block.equals(against)) against = block.getRelative(BlockFace.DOWN);
-
-		if (block.getType().isAir()) {
-			boolean done = materialize(caster, block, against, data);
-			return done ? new CastResult(PostCastAction.HANDLE_NORMALLY, data) : noTarget(strFailed, data);
+	private void parseArea() {
+		String[] areaParts = area.toLowerCase(Locale.ROOT).split("x", 2);
+		if (areaParts.length != 2) {
+			MagicSpells.error("MaterializeSpell '" + internalName + "' has an invalid area '" + area + "' defined. Falling back to 1x1.");
+			rowSize = 1;
+			columnSize = 1;
+			return;
 		}
 
-		Block block2 = block.getRelative(BlockFace.UP);
-		if (block2.getType().isAir()) {
-			data = data.location(block2.getLocation());
+		try {
+			rowSize = Math.max(1, Integer.parseInt(areaParts[0]));
+			columnSize = Math.max(1, Integer.parseInt(areaParts[1]));
+		} catch (NumberFormatException e) {
+			MagicSpells.error("MaterializeSpell '" + internalName + "' has an invalid area '" + area + "' defined. Falling back to 1x1.");
+			rowSize = 1;
+			columnSize = 1;
+		}
+	}
 
-			boolean done = materialize(caster, block2, block, data);
-			return done ? new CastResult(PostCastAction.HANDLE_NORMALLY, data) : noTarget(strFailed, data);
+	private CastResult castAtResolvedBlock(Player player, Block block, Block against, SpellData data) {
+		data = data.location(block.getLocation());
+		int configuredHeight = height.get(data);
+
+		boolean done = isSingleBlockPlacement(configuredHeight)
+			? materialize(player, block, against, defaultMaterial, data)
+			: materializeArea(player, block, data);
+
+		return done ? new CastResult(PostCastAction.HANDLE_NORMALLY, data) : noTarget(strFailed, data);
+	}
+
+	private boolean isSingleBlockPlacement(int configuredHeight) {
+		return rowSize == 1 && columnSize == 1 && Math.abs(configuredHeight) == 1 && !hasPatterns;
+	}
+
+	private Block resolveTargetBlock(SpellData data) {
+		Block block = data.location().getBlock();
+		if (block.isReplaceable()) return block;
+
+		Block upper = block.getRelative(BlockFace.UP);
+		return upper.isReplaceable() ? upper : null;
+	}
+
+	private Block resolveSupportBlock(Block previousSupport, Block targetBlock) {
+		if (targetBlock.getRelative(BlockFace.DOWN).equals(previousSupport)) return previousSupport;
+		return targetBlock.getRelative(BlockFace.DOWN);
+	}
+
+	private boolean materializeArea(Player player, Block centerBlock, SpellData data) {
+		Location start = centerBlock.getLocation().clone().add(-(rowSize / 2), 0, -(columnSize / 2));
+
+		int configuredHeight = height.get(data);
+		int layerDirection = configuredHeight < 0 ? -1 : 1;
+		int layerCount = Math.max(Math.abs(configuredHeight), 1);
+
+		int rowPosition = 0;
+		for (int layer = 0; layer < layerCount; layer++) {
+			int patternPosition = 0;
+			int yOffset = layer * layerDirection;
+
+			for (int z = 0; z < columnSize; z++) {
+				if (hasPatterns && patternPosition >= rowPatterns.length) patternPosition = 0;
+
+				int rowLength = getRowLength(patternPosition);
+				if (restartPatternEachRow) rowPosition = 0;
+
+				for (int x = 0; x < rowSize; x++) {
+					Block placeBlock = start.clone().add(x, yOffset, z).getBlock();
+					Material blockMaterial = resolveBlockMaterial(placeBlock, patternPosition, rowPosition, layerDirection, layer);
+
+					if (rowPosition >= rowLength) rowPosition = 0;
+					rowPosition++;
+
+					Block supportBlock = placeBlock.getRelative(0, -layerDirection, 0);
+					SpellData blockData = data.location(placeBlock.getLocation());
+					boolean done = materialize(player, placeBlock, supportBlock, blockMaterial, blockData);
+					if (!done) return false;
+				}
+
+				patternPosition++;
+			}
 		}
 
-		return noTarget(strFailed, data);
+		return true;
+	}
+
+	private Material resolveBlockMaterial(Block placeBlock, int patternPosition, int rowPosition, int layerDirection, int layer) {
+		if (stretchPattern && layer > 0) return placeBlock.getRelative(0, -layerDirection, 0).getType();
+		return blockGenerator(randomizePattern, patternPosition, rowPosition);
 	}
 
 	private int getRowLength(int patternPosition) {
@@ -310,31 +283,35 @@ public class MaterializeSpell extends TargetedSpell implements TargetedLocationS
 	}
 
 	private Material blockGenerator(boolean randomize, int patternPosition, int rowPosition) {
-		Material mat;
+		if (!hasPatterns) return defaultMaterial;
 
 		int randomIndex = random.nextInt(getRowLength(patternPosition));
-
-		if (!randomize) mat = rowPatterns[patternPosition][rowPosition];
-		else mat = rowPatterns[patternPosition][randomIndex];
-
-		return mat;
+		return randomize ? rowPatterns[patternPosition][randomIndex] : rowPatterns[patternPosition][rowPosition];
 	}
 
-	private boolean materialize(Player player, Block block, Block against, SpellData data) {
+	private boolean materialize(Player player, Block block, Block against, Material blockMaterial, SpellData data) {
+		if (!block.isReplaceable()) return false;
+
+		var blockData = blockMaterial.createBlockData();
+		if (!falling && !block.canPlace(blockData)) return false;
+
 		BlockState blockState = block.getState();
 
 		if (checkPlugins && player != null) {
-			block.setType(material, false);
+			block.setBlockData(blockData, false);
 			MagicSpellsBlockPlaceEvent event = new MagicSpellsBlockPlaceEvent(block, blockState, against, player.getEquipment().getItemInMainHand(), player, true);
 			EventUtil.call(event);
-			blockState.update(true);
 			if (event.isCancelled()) return false;
+
+			if (falling) blockState.update(true);
+			else if (applyPhysics) block.setBlockData(blockData, true);
 		}
+		else if (!falling) block.setBlockData(blockData, applyPhysics);
+
 		if (falling) {
 			Location location = block.getLocation().add(0.5, fallHeight.get(data), 0.5);
-			block.getWorld().spawn(location, FallingBlock.class, fb -> fb.setBlockData(material.createBlockData()));
+			block.getWorld().spawn(location, FallingBlock.class, fb -> fb.setBlockData(blockData));
 		}
-		else block.setType(material, applyPhysics);
 
 		playSpellEffects(EffectPosition.TARGET, block.getLocation(), data);
 		if (player != null) {
@@ -343,7 +320,7 @@ public class MaterializeSpell extends TargetedSpell implements TargetedLocationS
 		}
 
 		if (playBreakEffect) block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, block.getBlockData());
-		if (removeBlocks) blocks.add(block);
+		if (removeBlocks && !falling) blocks.add(block);
 
 		if (resetDelay > 0 && !falling) {
 			MagicSpells.scheduleDelayedTask(() -> {
@@ -355,9 +332,10 @@ public class MaterializeSpell extends TargetedSpell implements TargetedLocationS
 						EventUtil.call(event);
 						if (event.isCancelled()) return;
 					}
+					var placedBlockData = block.getBlockData();
 					block.setType(Material.AIR);
 					playSpellEffects(EffectPosition.BLOCK_DESTRUCTION, block.getLocation(), data);
-					if (playBreakEffect) block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, block.getBlockData());
+					if (playBreakEffect) block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, placedBlockData);
 				}
 			}, resetDelay);
 		}
