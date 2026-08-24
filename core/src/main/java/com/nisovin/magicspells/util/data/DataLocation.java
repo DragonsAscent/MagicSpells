@@ -17,7 +17,7 @@ public class DataLocation {
 		dataElements.put("location.block.type", location -> location.getBlock().getType().name());
 		dataElements.put("location.elevation", location -> location.getWorld().getHighestBlockYAt(location) + "");
 		dataElements.put("location.light", location -> location.getBlock().getLightLevel() + "");
-		dataElements.put("location.light.block", location -> location.getBlock().getLightFromBlocks() + "");
+		dataElements.put("location.light.blocks", location -> location.getBlock().getLightFromBlocks() + "");
 		dataElements.put("location.light.sky", location -> location.getBlock().getLightFromSky() + "");
 		dataElements.put("location", Location::toString);
 		dataElements.put("location.blockx", location -> location.getBlockX() + "");
