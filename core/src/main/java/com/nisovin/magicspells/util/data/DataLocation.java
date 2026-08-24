@@ -1,7 +1,7 @@
 package com.nisovin.magicspells.util.data;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.function.Function;
 
 import org.bukkit.Location;
