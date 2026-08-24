@@ -34,6 +34,7 @@ public class DataSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 	public CastResult cast(SpellData data) {
 		TargetInfo<LivingEntity> info = getTargetedEntity(data);
 		if (info.cancelled()) return noTarget(info);
+
 		if (!info.empty()) return castAtEntity(info.spellData());
 
 		TargetInfo<Location> locationInfo = getTargetedBlockLocation(data);
