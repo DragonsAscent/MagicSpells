@@ -127,7 +127,7 @@ public class ProxySpell extends BuffSpell implements Listener {
 	}
 
 	private void playRedirectEffects(LivingEntity target, LivingEntity proxyTarget, SpellData data) {
-		playSpellEffects(EffectPosition.TARGET, target, data);
+		playSpellEffects(EffectPosition.START_POSITION, target, data);
 		playSpellEffects(EffectPosition.END_POSITION, proxyTarget, data);
 	}
 
