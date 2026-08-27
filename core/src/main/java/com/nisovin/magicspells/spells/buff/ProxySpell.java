@@ -110,12 +110,6 @@ public class ProxySpell extends BuffSpell implements Listener {
 			redirecting.remove(proxyTarget.getUniqueId());
 		}
 	}
-
-	@EventHandler(ignoreCancelled = true)
-	public void onLegacyDamage(MagicSpellsEntityDamageByEntityEvent event) {
-		onEntityDamage(event);
-	}
-
 	private LivingEntity getProxyTarget(LivingEntity target) {
 		SpellData proxyData = proxies.get(target.getUniqueId());
 		if (proxyData == null) return null;
