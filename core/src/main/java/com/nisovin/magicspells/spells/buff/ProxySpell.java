@@ -69,10 +69,9 @@ public class ProxySpell extends BuffSpell implements Listener {
 		LivingEntity proxyTarget = getProxyTarget(target);
 		if (proxyTarget == null) return;
 
-		SpellData subData = event.getSpellData().target(proxyTarget);
-		playRedirectEffects(target, proxyTarget, subData);
-
 		event.setTarget(proxyTarget);
+		playRedirectEffects(target, proxyTarget, event.getSpellData());
+
 		addUseAndChargeCost(target);
 	}
 
