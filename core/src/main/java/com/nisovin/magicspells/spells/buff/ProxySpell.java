@@ -104,7 +104,7 @@ public class ProxySpell extends BuffSpell implements Listener {
 
 		event.setCancelled(true);
 		try {
-			proxyTarget.damage(event.getDamage(), event.getDamager());
+			proxyTarget.damage(event.getDamage(), event.getDamageSource());
 			addUseAndChargeCost(target);
 		} finally {
 			redirecting.remove(proxyTarget.getUniqueId());
