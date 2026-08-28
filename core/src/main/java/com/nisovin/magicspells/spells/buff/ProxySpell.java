@@ -61,7 +61,7 @@ public class ProxySpell extends BuffSpell {
 	@EventHandler(ignoreCancelled = true)
 	public void onSpellTarget(SpellTargetEvent event) {
 		LivingEntity target = event.getTarget();
-		if (target == null || !target.isValid()) return;
+		if (target == null || !isActive(target)) return;
 
 		LivingEntity proxyTarget = getProxyTarget(target);
 		if (proxyTarget == null) return;
@@ -75,7 +75,7 @@ public class ProxySpell extends BuffSpell {
 	@EventHandler(ignoreCancelled = true)
 	public void onSpellPreImpact(SpellPreImpactEvent event) {
 		LivingEntity target = event.getTarget();
-		if (target == null || !target.isValid()) return;
+		if (target == null || !isActive(target)) return;
 
 		LivingEntity proxyTarget = getProxyTarget(target);
 		if (proxyTarget == null) return;
@@ -89,7 +89,7 @@ public class ProxySpell extends BuffSpell {
 
 	@EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
 	public void onEntityDamage(EntityDamageByEntityEvent event) {
-		if (!(event.getEntity() instanceof LivingEntity target) || !target.isValid()) return;
+		if (!(event.getEntity() instanceof LivingEntity target) || !isActive(target)) return;
 
 		LivingEntity proxyTarget = getProxyTarget(target);
 		if (proxyTarget == null) return;
