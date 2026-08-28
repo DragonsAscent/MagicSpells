@@ -1,28 +1,26 @@
 package com.nisovin.magicspells.spells.buff;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Collection;
 
 import org.jetbrains.annotations.NotNull;
 
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.event.Listener;
 import org.bukkit.event.EventHandler;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
+import com.nisovin.magicspells.util.SpellData;
+import com.nisovin.magicspells.spells.BuffSpell;
+import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.events.SpellTargetEvent;
 import com.nisovin.magicspells.events.SpellPreImpactEvent;
-import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
-import com.nisovin.magicspells.spells.BuffSpell;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
-import com.nisovin.magicspells.util.MagicConfig;
-import com.nisovin.magicspells.util.SpellData;
 
-public class ProxySpell extends BuffSpell implements Listener {
+public class ProxySpell extends BuffSpell {
 
 	private final Set<UUID> redirecting = new HashSet<>();
 	private final Map<UUID, SpellData> proxies = new HashMap<>();
@@ -107,6 +105,7 @@ public class ProxySpell extends BuffSpell implements Listener {
 			redirecting.remove(proxyTarget.getUniqueId());
 		}
 	}
+
 	private LivingEntity getProxyTarget(LivingEntity target) {
 		SpellData proxyData = proxies.get(target.getUniqueId());
 		if (proxyData == null) return null;
