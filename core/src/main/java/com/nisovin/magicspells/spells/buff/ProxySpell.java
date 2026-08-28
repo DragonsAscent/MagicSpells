@@ -31,6 +31,7 @@ public class ProxySpell extends BuffSpell {
 
 	@Override
 	public boolean castBuff(SpellData data) {
+		if (data.target().equals(data.caster())) return false;
 		proxies.put(data.target().getUniqueId(), data.caster());
 		return true;
 	}
