@@ -18,7 +18,6 @@ import com.nisovin.magicspells.util.SpellData;
 import com.nisovin.magicspells.spells.BuffSpell;
 import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.events.SpellTargetEvent;
-import com.nisovin.magicspells.events.SpellPreImpactEvent;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
 
 public class ProxySpell extends BuffSpell {
@@ -69,21 +68,6 @@ public class ProxySpell extends BuffSpell {
 		event.setTarget(proxyTarget);
 		playRedirectEffects(target, proxyTarget, event.getSpellData());
 
-		addUseAndChargeCost(target);
-	}
-
-	@EventHandler(ignoreCancelled = true)
-	public void onSpellPreImpact(SpellPreImpactEvent event) {
-		LivingEntity target = event.getTarget();
-		if (target == null || !isActive(target)) return;
-
-		LivingEntity proxyTarget = getProxyTarget(target);
-		if (proxyTarget == null) return;
-
-		SpellData subData = new SpellData(event.getCaster(), proxyTarget, event.getPower());
-		playRedirectEffects(target, proxyTarget, subData);
-
-		event.setRedirected(true);
 		addUseAndChargeCost(target);
 	}
 
