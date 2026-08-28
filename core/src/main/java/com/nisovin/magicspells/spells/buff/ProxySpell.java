@@ -24,14 +24,11 @@ import com.nisovin.magicspells.util.SpellData;
 
 public class ProxySpell extends BuffSpell implements Listener {
 
-	private final Map<UUID, SpellData> proxies;
-	private final Set<UUID> redirecting;
+	private final Set<UUID> redirecting = new HashSet<>();
+	private final Map<UUID, SpellData> proxies = new HashMap<>();
 
 	public ProxySpell(MagicConfig config, String spellName) {
 		super(config, spellName);
-
-		proxies = new HashMap<>();
-		redirecting = new HashSet<>();
 	}
 
 	@Override
