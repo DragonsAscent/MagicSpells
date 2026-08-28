@@ -85,7 +85,7 @@ public class ProxySpell extends BuffSpell {
 
 		event.setCancelled(true);
 		try {
-			proxyTarget.damage(event.getDamage(), event.getDamageSource());
+			proxyTarget.damage(event.getFinalDamage(), event.getDamageSource());
 			addUseAndChargeCost(target);
 		} finally {
 			redirecting.remove(proxyTarget.getUniqueId());
