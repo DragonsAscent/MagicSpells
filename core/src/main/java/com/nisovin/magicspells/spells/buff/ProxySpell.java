@@ -24,7 +24,7 @@ import com.nisovin.magicspells.spelleffects.EffectPosition;
 public class ProxySpell extends BuffSpell {
 
 	private final Set<UUID> redirecting = new HashSet<>();
-	private final Map<UUID, SpellData> proxies = new HashMap<>();
+	private final Map<UUID, LivingEntity> proxies = new HashMap<>();
 
 	public ProxySpell(MagicConfig config, String spellName) {
 		super(config, spellName);
@@ -32,7 +32,7 @@ public class ProxySpell extends BuffSpell {
 
 	@Override
 	public boolean castBuff(SpellData data) {
-		proxies.put(data.target().getUniqueId(), data);
+		proxies.put(data.target().getUniqueId(), data.caster());
 		return true;
 	}
 
@@ -108,10 +108,7 @@ public class ProxySpell extends BuffSpell {
 	}
 
 	private LivingEntity getProxyTarget(LivingEntity target) {
-		SpellData proxyData = proxies.get(target.getUniqueId());
-		if (proxyData == null) return null;
-
-		LivingEntity proxyTarget = proxyData.caster();
+		LivingEntity proxyTarget = proxies.get(target.getUniqueId());
 		if (proxyTarget != null && proxyTarget.isValid()) return proxyTarget;
 
 		turnOff(target);
