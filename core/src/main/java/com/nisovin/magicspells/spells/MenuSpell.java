@@ -72,7 +72,10 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 			String path = "options." + optionName + ".";
 
 			List<Integer> configuredSlots = getConfigIntList(path + "slots", new ArrayList<>());
-			if (configuredSlots.isEmpty()) configuredSlots.add(getConfigInt(path + "slot", -1));
+			if (configuredSlots.isEmpty()) {
+				int legacySlot = getConfigInt(path + "slot", -1);
+				if (legacySlot != -1) configuredSlots.add(legacySlot);
+			}
 			List<Integer> configuredValidSlots = getConfigIntList(path + "valid-slots", new ArrayList<>());
 
 			List<Integer> slots = new ArrayList<>();
