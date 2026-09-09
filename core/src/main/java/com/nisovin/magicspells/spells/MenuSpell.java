@@ -132,6 +132,7 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 			option.spellSwapName = getConfigString(path + "spell-swap", "");
 			option.power = getConfigFloat(path + "power", 1);
 			option.modifierList = getConfigStringList(path + "modifiers", null);
+			option.sortMode = SortMode.fromConfigValue(getConfigString(path + "sort-mode", "none"));
 			option.stayOpen = getConfigBoolean(path + "stay-open", false);
 			options.put(optionName, option);
 		}
@@ -293,9 +294,28 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 			} else quantity = (int) Math.round(variable.getValue(opener));
 			item.setAmount(quantity);
 
-			// Set item for all defined slots.
-			for (int slot : option.slots) {
-				if (inv.getItem(slot) == null) inv.setItem(slot, item);
+			// Set item for the defined slots based on the configured fill behavior.
+			switch (option.sortMode) {
+				case FIRST -> {
+					for (int slot : option.slots) {
+						if (inv.getItem(slot) != null) continue;
+						inv.setItem(slot, item);
+						break;
+					}
+				}
+				case LAST -> {
+					for (int index = option.slots.size() - 1; index >= 0; index--) {
+						int slot = option.slots.get(index);
+						if (inv.getItem(slot) != null) continue;
+						inv.setItem(slot, item);
+						break;
+					}
+				}
+				case NONE -> {
+					for (int slot : option.slots) {
+						if (inv.getItem(slot) == null) inv.setItem(slot, item);
+					}
+				}
 			}
 		}
 		// Fill inventory.
@@ -434,6 +454,22 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 		IGNORE
 	}
 
+	private enum SortMode {
+		NONE,
+		FIRST,
+		LAST;
+
+		private static SortMode fromConfigValue(String value) {
+			if (value == null) return NONE;
+
+			return switch (value.toLowerCase()) {
+				case "first" -> FIRST;
+				case "last" -> LAST;
+				default -> NONE;
+			};
+		}
+	}
+
 	private static class MenuOption {
 
 		private String menuOptionName;
@@ -456,6 +492,7 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 		private float power;
 		private List<String> modifierList;
 		private ModifierSet menuOptionModifiers;
+		private SortMode sortMode;
 		private boolean stayOpen;
 
 	}
