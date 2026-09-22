@@ -132,8 +132,15 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 			option.spellSwapName = getConfigString(path + "spell-swap", "");
 			option.power = getConfigFloat(path + "power", 1);
 			option.modifierList = getConfigStringList(path + "modifiers", null);
-			option.sortMode = SortMode.fromConfigValue(getConfigString(path + "sort-mode", "none"));
 			option.stayOpen = getConfigBoolean(path + "stay-open", false);
+
+			String modeString = getConfigString(path + "sort-mode", "none");
+			option.sortMode = Util.enumValueSafe(SortMode.class, modeString);
+			if (option.sortMode == null) {
+				MagicSpells.error("MenuSpell '" + internalName + "' has an invalid 'sort-mode' defined for '" + optionName + "': '" + modeString + "'. Falling back to 'none'.");
+				option.sortMode = SortMode.NONE;
+			}
+
 			options.put(optionName, option);
 		}
 		size = (int) Math.ceil((maxSlot + 1) / 9.0) * 9;
@@ -457,17 +464,7 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 	private enum SortMode {
 		NONE,
 		FIRST,
-		LAST;
-
-		private static SortMode fromConfigValue(String value) {
-			if (value == null) return NONE;
-
-			return switch (value.toLowerCase()) {
-				case "first" -> FIRST;
-				case "last" -> LAST;
-				default -> NONE;
-			};
-		}
+		LAST
 	}
 
 	private static class MenuOption {
